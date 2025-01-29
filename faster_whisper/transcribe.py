@@ -52,6 +52,8 @@ class Segment:
     start: float
     end: float
     text: str
+    language: str
+    language_probability: float
     tokens: List[int]
     avg_logprob: float
     compression_ratio: float
@@ -1315,6 +1317,8 @@ class WhisperModel:
                     start=segment["start"],
                     end=segment["end"],
                     text=text,
+                    language=language,
+                    language_probability=language_probability,
                     tokens=tokens,
                     temperature=temperature,
                     avg_logprob=avg_logprob,
@@ -1753,9 +1757,9 @@ class WhisperModel:
             languege_probability: Probability of the detected language.
             all_language_probs: List of tuples with all language names and probabilities.
         """
-        assert (
-            audio is not None or features is not None
-        ), "Either `audio` or `features` must be provided."
+        assert audio is not None or features is not None, (
+            "Either `audio` or `features` must be provided."
+        )
 
         if audio is not None:
             if vad_filter:
