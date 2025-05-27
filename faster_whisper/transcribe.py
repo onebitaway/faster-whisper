@@ -120,13 +120,22 @@ class BatchedInferencePipeline:
         self.last_speech_timestamp = 0.0
 
     def forward(self, features, tokenizer, chunks_metadata, options):
+        # Per-VAD-segment language detection
+        per_segment_languages = []
+        per_segment_language_probs = []
+        for chunk in features:
+            # chunk shape: (n_mels, n_frames)
+            lang, lang_prob, _ = self.model.detect_language(features=chunk)
+            per_segment_languages.append(lang)
+            per_segment_language_probs.append(lang_prob)
+
         encoder_output, outputs = self.generate_segment_batched(
             features, tokenizer, options
         )
 
         segmented_outputs = []
         segment_sizes = []
-        for chunk_metadata, output in zip(chunks_metadata, outputs):
+        for idx, (chunk_metadata, output) in enumerate(zip(chunks_metadata, outputs)):
             duration = chunk_metadata["end_time"] - chunk_metadata["start_time"]
             segment_size = int(ceil(duration) * self.model.frames_per_second)
             segment_sizes.append(segment_size)
@@ -157,6 +166,8 @@ class BatchedInferencePipeline:
                         seek=int(
                             chunk_metadata["start_time"] * self.model.frames_per_second
                         ),
+                        language=per_segment_languages[idx],
+                        language_probability=per_segment_language_probs[idx],
                     )
                     for subsegment in subsegments
                 ]
@@ -578,6 +589,8 @@ class BatchedInferencePipeline:
                         no_speech_prob=segment["no_speech_prob"],
                         compression_ratio=segment["compression_ratio"],
                         temperature=options.temperatures[0],
+                        language=segment["language"],
+                        language_probability=segment["language_probability"],
                     )
 
                 pbar.update(1)
